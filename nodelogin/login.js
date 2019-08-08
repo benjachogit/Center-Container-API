@@ -1,15 +1,15 @@
-var mysql = require('mysql');
+const mariadb = require('mariadb'); // เรียกใช้งาน Mariadb 
 var express = require('express');
 var session = require('express-session');
 var bodyParser = require('body-parser');
 var path = require('path');
 
-var connection = mysql.createConnection({
-	host     : 'localhost',
-	user     : 'root',
-	password : '',
-	database : 'nodelogin'
-});
+const pool = mariadb.createPool({
+    host     : 'localhost',
+    user     : 'root',
+    password : 'tan0895724323',
+    database : 'testing'
+})
 
 var app = express();
 app.use(session({
@@ -20,37 +20,42 @@ app.use(session({
 app.use(bodyParser.urlencoded({extended : true}));
 app.use(bodyParser.json());
 
-app.get('/', function(request, response) {
-	response.sendFile(path.join(__dirname + '/login.html'));
+app.get('/', (req, res) => {
+	res.sendFile(path.join(__dirname + '/login.html'));
 });
 
-app.post('/auth', function(request, response) {
-	var username = request.body.username;
-	var password = request.body.password;
+app.post('/auth', (req, res) => {
+	var username = req.body.username;
+	var password = req.body.password;
+	pool.getConnection()
+    	.then(conn => {
 	if (username && password) {
-		connection.query('SELECT * FROM accounts WHERE username = ? AND password = ?', [username, password], function(error, results, fields) {
-			if (results.length > 0) {
-				request.session.loggedin = true;
-				request.session.username = username;
-				response.redirect('/home');
+		conn.query('SELECT * FROM login WHERE username = ? AND password = ?', [username, password])
+		.then((rows) => {
+			if (rows.length > 0) {
+				req.session.loggedin = true;
+				req.session.username = username;
+				res.redirect('/home');
 			} else {
-				response.send('Incorrect Username and/or Password!');
+				res.send('Incorrect Username and/or Password!');
 			}			
-			response.end();
+			res.end();
 		});
 	} else {
-		response.send('Please enter Username and Password!');
-		response.end();
+		res.send('Please enter Username and Password!');
+		res.end();
 	}
+	})
 });
 
-app.get('/home', function(request, response) {
-	if (request.session.loggedin) {
-		response.send('Welcome back, ' + request.session.username + '!');
+
+app.get('/home', (req, res) => {
+	if (req.session.loggedin) {
+		res.send('Welcome back, ' + req.session.username + '!');
 	} else {
-		response.send('Please login to view this page!');
+		res.send('Please login to view this page!');
 	}
-	response.end();
+	res.end();
 });
 
 app.listen(3000);
